@@ -1,0 +1,15 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system Python, Tk, pytest and Xvfb
+        run: sudo apt-get update && sudo apt-get install -y python3-tk python3-pytest xvfb
+      - name: Run tests (GUI tests run headless under Xvfb; no screenshots)
+        run: xvfb-run -a python3 -m pytest -v
+      - name: Build release tarball
+        run: python3 tools/build_release.py

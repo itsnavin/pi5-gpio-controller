@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Pi 5 GPIO Controller
+Comment=Toggle and time Raspberry Pi 5 GPIO pins
+Exec=@EXEC@
+Terminal=false
+Categories=Utility;Electronics;
