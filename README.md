@@ -23,6 +23,29 @@ cd pi5-gpio-controller-0.1.0
 in `~/.local/share/pi5-gpio`, and adds a menu entry (*Pi 5 GPIO Controller*) plus a `pi5-gpio` command.
 You need to be in the `gpio` group (the default user already is): `sudo usermod -aG gpio $USER`, then log out/in.
 
+### Standalone Linux binary (no Python install needed) - Pi 5, arm64
+Download `pi5-gpio-linux-arm64.tar.gz` from the Releases page (built in CI on Debian Bookworm, same base as Raspberry Pi OS Bookworm):
+
+```bash
+tar xzf pi5-gpio-linux-arm64.tar.gz
+./pi5-gpio              # opens the desktop GUI using the Pi's real GPIO
+./pi5-gpio --mock       # simulation
+```
+You may need `sudo apt install libgpiod2 python3-tk`-style system libraries only if the binary reports a missing library; Tk and libgpiod are bundled when possible.
+
+### Control from Windows (or any PC) in a browser
+Run the agent on the Pi (it serves a web page with the same pin diagram, toggles and timers):
+
+```bash
+./pi5-gpio --serve --host 0.0.0.0 --token YOUR-SECRET     # token optional on localhost; printed if omitted
+```
+Then on Windows open `http://<pi-address>:8765/` (e.g. `http://raspberrypi.local:8765/`) and enter the token.
+Alternatively use the desktop GUI remotely: `py -m pi5gpio --remote http://raspberrypi.local:8765 --token YOUR-SECRET`.
+
+Security: traffic is **not encrypted** and the token is a shared secret - use it only on a trusted home network, or tunnel through SSH
+(`ssh -L 8765:localhost:8765 pi@raspberrypi.local`, then run the agent with the default `--host 127.0.0.1` and browse to `http://localhost:8765/`).
+If the browser/GUI stops talking to the Pi for 5 s, the agent drives all outputs LOW and stops all timers. `--host` other than localhost requires a token.
+
 Run: `pi5-gpio`   |   Try without touching hardware: `pi5-gpio --mock`
 
 Options: `--backend {auto,gpiod,mock}`, `--chip /dev/gpiochip4`. With `auto` (default) the app falls back to the
