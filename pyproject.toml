@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pi5-gpio-controller"
+dynamic = ["version"]
+description = "GUI GPIO controller with toggles and timers for Raspberry Pi 5"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+[project.scripts]
+pi5-gpio = "pi5gpio.__main__:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "pi5gpio.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
