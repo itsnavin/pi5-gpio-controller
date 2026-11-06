@@ -1,0 +1,62 @@
+name: Build Linux binary
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+  pull_request:
+    paths: ["src/**", "tools/entry.py", ".github/workflows/binary.yml"]
+
+jobs:
+  build-arm64:
+    # Built in Debian Bookworm (same base as Raspberry Pi OS Bookworm) on a native arm64 runner,
+    # so the binary links against a compatible glibc and runs on the Pi 5 (aarch64).
+    runs-on: ubuntu-24.04-arm
+    container: debian:bookworm
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates python3 python3-venv python3-pip \
+            python3-tk python3-libgpiod libpython3.11 file binutils xvfb xauth curl
+      - uses: actions/checkout@v4
+      - name: Build one-file binary
+        run: |
+          python3 -m venv --system-site-packages /tmp/venv
+          /tmp/venv/bin/pip install pyinstaller pytest
+          /tmp/venv/bin/pytest -q
+          /tmp/venv/bin/pyinstaller --onefile --name pi5-gpio --paths src \
+            --hidden-import gpiod --hidden-import tkinter tools/entry.py
+          cd dist && tar czf pi5-gpio-linux-arm64.tar.gz pi5-gpio && sha256sum pi5-gpio-linux-arm64.tar.gz > pi5-gpio-linux-arm64.tar.gz.sha256
+      - name: Smoke test the binary (headless; no screenshots)
+        run: |
+          file dist/pi5-gpio || true
+          dist/pi5-gpio --version
+          # GUI starts and stays up under Xvfb (exit 124 = still running when timeout hit)
+          rc=0; timeout 6 xvfb-run -a dist/pi5-gpio --mock || rc=$?
+          test "$rc" = 124
+          # Browser mode serves the UI and API
+          dist/pi5-gpio --mock --serve --token ci-token --port 8765 & pid=$!
+          sleep 4
+          curl -fsS http://127.0.0.1:8765/ | grep -q "Pi 5 GPIO"
+          curl -fsS -H "Authorization: Bearer ci-token" http://127.0.0.1:8765/api/snapshot | grep -q '"pins"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/api/snapshot)" = 401
+          kill $pid
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pi5-gpio-linux-arm64
+          path: dist/pi5-gpio-linux-arm64.tar.gz*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-arm64
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pi5-gpio-linux-arm64
+      - name: Attach to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" pi5-gpio-linux-arm64.tar.gz* --clobber --repo "${{ github.repository }}"
